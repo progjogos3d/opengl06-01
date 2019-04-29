@@ -86,6 +86,10 @@ public class Terrain implements Scene {
         if (keys.isDown(GLFW_KEY_S)) {
             angleX -= Math.toRadians(180) * secs;
         }
+
+        if (keys.isPressed(GLFW_KEY_M)) {
+            mesh.setWireframe(!mesh.isWireframe());
+        }
         
         if (keys.isDown(GLFW_KEY_SPACE)) {
             angleX = 0;
