@@ -17,7 +17,7 @@ import static org.lwjgl.opengl.GL11.*;
 public class TerrainScene implements Scene {
     private Keyboard keys = Keyboard.getInstance();
 
-    private static final String PATH = "/Users/vinigodoy/opengl/heights/";
+    private static final String PATH = "/Users/vinigodoy/opengl";
 
     private final float WALK_SPEED = 20f;
     private final float TURN_SPEED = toRadians(120f);
@@ -35,7 +35,7 @@ public class TerrainScene implements Scene {
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
         shader = Shader.loadProgram("phong");
-        mesh = MeshFactory.loadTerrain(shader, PATH + "river.jpg", 0.3f);
+        mesh = MeshFactory.loadTerrain(shader, PATH + "/heights/river.jpg", 0.3f);
 
         camera.getPosition().set(-68.28f, 16.78f, 34.79f);
         camera.setAngleY(toRadians(292.0f));
