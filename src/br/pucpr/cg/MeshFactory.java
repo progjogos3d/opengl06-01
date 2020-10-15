@@ -102,45 +102,53 @@ public class MeshFactory {
             .create();
     }
 
+    // Conversão de um índice no formato (x,z) para o linear, usado no index buffer
+    // (x,z) = x + z * width
+    private static int linearIndex(int x, int z, int width) {
+       return x + z * width;
+    }
+
     public static Mesh loadTerrain(Shader shader, String name, float scale) {
         try {
-            BufferedImage img = ImageIO.read(new File(name));
+            var img = ImageIO.read(new File(name));
 
             int width = img.getWidth();
             int depth = img.getHeight();
 
-            float hw = width / 2.0f;
-            float hd = depth / 2.0f;
+            //Vértices (posições) da malha
+            //----------------------------
 
+            //Subtraímos metade da altura e largura para garantir que fique no centro
+            var offset = new Vector3f(width / 2.0f, 0.0f, depth / 2.0f);
             var positions = new ArrayList<Vector3f>();
             for (int z = 0; z < depth; z++) {
                 for (int x = 0; x < width; x++) {
-                    float tone1 = new Color(img.getRGB(x, z)).getRed();
+                    var dx = x != width-1 ? 1 : -1;
+                    var dz = z != depth - 1 ? 1 : -1;
 
-                    float tone2 = x != width-1 ?
-                            new Color(img.getRGB(x+1, z)).getRed() :
-                            new Color(img.getRGB(x-1, z)).getRed();
+                    //Suavização do terreno
+                    var tone1 = new Color(img.getRGB(x, z)).getRed();
+                    var tone2 = new Color(img.getRGB(x+dx, z)).getRed();
+                    var tone3 = new Color(img.getRGB(x, z+dz)).getRed();
+                    var tone4 = new Color(img.getRGB(x+dx, z+dz)).getRed();
+                    var tone = (tone1 + tone2 + tone3 + tone4) / 4.0f;
 
-                    float tone3 = z != depth - 1 ?
-                            new Color(img.getRGB(x, z+1)).getRed() :
-                            new Color(img.getRGB(x, z-1)).getRed();
-
-                    float tone = (tone1 + tone2 + tone3) / 3.0f;
-                    positions.add(new Vector3f(x - hw, tone * scale, z - hd));
+                    positions.add(new Vector3f(x, tone * scale, z).sub(offset));
                 }
             }
 
-            //  0   1   .   .
-            //  2   3   .   .    (x,z) = x + z * width
-            //  .   .   .   .
-            //  .   .   .   .
+            //Index buffer
+            //------------
+
+            //Os índices são criados a cada quadrado da malha. Observe que há uma linha e coluna a menos de quadrados
+            //do que há de vértices.
             var indices = new ArrayList<Integer>();
             for (int z = 0; z < depth-1; z++) {
                 for (int x = 0; x < width-1; x++) {
-                    int zero = x + z * width;
-                    int one = (x+1) + z * width;
-                    int two = x + (z+1) * width;
-                    int three = (x+1) + (z+1) * width;
+                    int zero = linearIndex(x, z, width);
+                    int one = linearIndex(x+1, + z, width);
+                    int two = linearIndex(x, z+1, width);
+                    int three = linearIndex(x+1, z+1, width);
 
                     indices.add(zero);
                     indices.add(three);
@@ -152,33 +160,46 @@ public class MeshFactory {
                 }
             }
 
+            //Normais de superfície
+            //---------------------
             var normals = new ArrayList<Vector3f>();
             for (int i = 0; i < positions.size(); i++) {
                 normals.add(new Vector3f());
             }
 
+            //Percorremos triangulo por triangulo
             for (var i = 0; i < indices.size(); i += 3) {
+                //Índices dos 3 vértices
                 int i1 = indices.get(i);
                 int i2 = indices.get(i+1);
                 int i3 = indices.get(i+2);
 
+                //Três vértices do triangulo
                 var v1 = positions.get(i1);
                 var v2 = positions.get(i2);
                 var v3 = positions.get(i3);
 
+                //Vetores dos lados.
                 var side1 = sub(v2, v1);
                 var side2 = sub(v3, v1);
+
+                //Vetor que faz 90 graus com o lado. Seu tamanho ainda será o dobro da área do triangulo.
+                //Isso é util pois ele será acumulado no vértice, assim triangulos maiores terão um peso maior.
                 var normal = cross(side1, side2);
 
+                //Somamos o vetor resultante em cada vértice. Lembre-se que há vértices coincidentes entre vários
+                //triangulos da malha. A soma causará um vetor na direção aproximada da média dos vetores.
                 normals.get(i1).add(normal);
                 normals.get(i2).add(normal);
                 normals.get(i3).add(normal);
             }
 
+            //Normalizamos todos os vetores, para que tenham tamanho 1.
             for (var normal : normals) {
                 normal.normalize();
             }
 
+            //Montamos a malha.
             return new MeshBuilder(shader)
                     .addVector3fAttribute("aPosition", positions)
                     .addVector3fAttribute("aNormal", normals)
