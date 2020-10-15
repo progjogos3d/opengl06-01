@@ -3,7 +3,7 @@ package br.pucpr.mage;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
-import org.lwjgl.BufferUtils;
+import org.lwjgl.system.MemoryUtil;
 
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
@@ -19,9 +19,11 @@ import static org.lwjgl.opengl.GL30.glBindVertexArray;
  */
 public class MeshBuilder {
     private Mesh mesh;
+    private Shader shader;
 
-    public MeshBuilder() {
+    public MeshBuilder(Shader shader) {
         mesh = new Mesh();
+        this.shader = shader;
         glBindVertexArray(mesh.getId());
     }
 
@@ -29,6 +31,7 @@ public class MeshBuilder {
     //--------------------
     public MeshBuilder addBufferAttribute(String name, ArrayBuffer data) {
         mesh.addAttribute(name, data);
+        shader.setAttribute(name, data);
         return this;
     }
 
@@ -43,12 +46,18 @@ public class MeshBuilder {
     // Atributos do tipo Vector2
     // -------------------------
     public MeshBuilder addVector2fAttribute(String name, Collection<Vector2f> values) {
-        FloatBuffer valueBuffer = BufferUtils.createFloatBuffer(values.size() * 2);
-        for (Vector2f value : values) {
-            valueBuffer.put(value.x).put(value.y);
+        FloatBuffer buffer = null;
+        try {
+            buffer = MemoryUtil.memAllocFloat(values.size() * 2);
+            for (var value : values) {
+                buffer.put(value.x).put(value.y);
+            }
+            buffer.flip();
+            addBufferAttribute(name, 2, buffer);
+        } finally {
+            if (buffer != null) MemoryUtil.memFree(buffer);
         }
-        valueBuffer.flip();
-        return addBufferAttribute(name, 2, valueBuffer);
+        return this;
     }
 
     public MeshBuilder addVector2fAttribute(String name, Vector2f... values) {
@@ -62,12 +71,18 @@ public class MeshBuilder {
     // Atributos do tipo Vector3
     // -------------------------
     public MeshBuilder addVector3fAttribute(String name, Collection<Vector3f> values) {
-        FloatBuffer valueBuffer = BufferUtils.createFloatBuffer(values.size() * 3);
-        for (Vector3f value : values) {
-            valueBuffer.put(value.x).put(value.y).put(value.z);
+        FloatBuffer buffer = null;
+        try {
+            buffer = MemoryUtil.memAllocFloat(values.size() * 3);
+            for (var value : values) {
+                buffer.put(value.x).put(value.y).put(value.z);
+            }
+            buffer.flip();
+            addBufferAttribute(name, 3, buffer);
+        } finally {
+            if (buffer != null) MemoryUtil.memFree(buffer);
         }
-        valueBuffer.flip();
-        return addBufferAttribute(name, 3, valueBuffer);
+        return this;
     }
 
     public MeshBuilder addVector3fAttribute(String name, Vector3f... values) {
@@ -82,12 +97,18 @@ public class MeshBuilder {
     //Atributos do tipo Vector4
     //-------------------------
     public MeshBuilder addVector4fAttribute(String name, Collection<Vector4f> values) {
-        FloatBuffer valueBuffer = BufferUtils.createFloatBuffer(values.size() * 4);
-        for (Vector4f value : values) {
-            valueBuffer.put(value.x).put(value.y).put(value.z).put(value.w);
+        FloatBuffer buffer = null;
+        try {
+            buffer = MemoryUtil.memAllocFloat(values.size() * 4);
+            for (var value : values) {
+                buffer.put(value.x).put(value.y).put(value.z).put(value.w);
+            }
+            buffer.flip();
+            addBufferAttribute(name, 4, buffer);
+        } finally {
+            if (buffer != null) MemoryUtil.memFree(buffer);
         }
-        valueBuffer.flip();
-        return addBufferAttribute(name, 4, valueBuffer);
+        return this;
     }
 
     public MeshBuilder addVector4fAttribute(String name, Vector4f... values) {
@@ -110,30 +131,22 @@ public class MeshBuilder {
     }
 
     public MeshBuilder setIndexBuffer(Collection<Integer> data) {
-        IntBuffer buffer = BufferUtils.createIntBuffer(data.size());
-        for (int value : data) {
-            buffer.put(value);
+        IntBuffer buffer = null;
+        try {
+            buffer = MemoryUtil.memAllocInt(data.size() * 3);
+            for (var value : data) {
+                buffer.put(value);
+            }
+            buffer.flip();
+            setIndexBuffer(buffer);
+        } finally {
+            if (buffer != null) MemoryUtil.memFree(buffer);
         }
-        buffer.flip();
-        return setIndexBuffer(buffer);
+        return this;
     }
 
     public MeshBuilder setIndexBuffer(int... data) {
-        IntBuffer buffer = BufferUtils.createIntBuffer(data.length);
-        buffer.put(data).flip();
-        return setIndexBuffer(buffer);
-    }
-
-    // Shader
-    // ------
-    public MeshBuilder setShader(Shader shader) {
-        mesh.setShader(shader);
-        return this;
-    }
-
-    public MeshBuilder loadShader(String... shaders) {
-        mesh.setShader(Shader.loadProgram(shaders));
-        return this;
+        return setIndexBuffer(new IndexBuffer(data));
     }
 
     /**
@@ -141,7 +154,6 @@ public class MeshBuilder {
      * @return A malha criada.
      */
     public Mesh create() {
-        glBindVertexArray(0);
-        return mesh;
+        return mesh.unbindAll();
     }
 }
